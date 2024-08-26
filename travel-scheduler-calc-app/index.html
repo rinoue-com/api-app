@@ -223,15 +223,16 @@
             </div>
         </div>
     </div>
-    <div id="totalTime">総所要時間: 0分</div>
+    <div id="totalTime">総移動時間: 0分</div>
     <div id="finalArrivalTime">到着時刻: -</div>
     <table id="itineraryTable">
         <thead>
             <tr>
                 <th>操作</th>
                 <th>地点</th>
+                <th>到着時刻/ 出発時刻</th>
                 <th>交通手段</th>
-                <th>滞在時間・所要時間</th>
+                <th>所要時間</th>
                 <th>距離</th>
                 <th>マップ</th>
             </tr>
@@ -240,6 +241,7 @@
             <tr>
                 <td><button class="add-button" onclick="addLocation(1)" id="addButton">+</button></td>
                 <td><input type="text" id="location0" class="location-input" name="location" placeholder="地点1"></td>
+                <td id="time0">- / -</td>
                 <td></td>
                 <td>
                     <div class="stay-time-input">
@@ -253,6 +255,7 @@
             <tr data-index="0">
                 <td></td>
                 <td></td>
+                <td id="time1">- / -</td>
                 <td>
                     <select id="mode0" class="mode-select">
                         <option value="driving" selected>車</option>
@@ -311,6 +314,7 @@
             modeRow.innerHTML = `
                 <td></td>
                 <td></td>
+                <td id="time${locationIndex*2-1}">- / -</td>
                 <td>
                     <select id="mode${locationIndex}" class="mode-select">
                         <option value="driving" selected>車</option>
@@ -327,6 +331,7 @@
             newLocationRow.innerHTML = `
                 <td><button class="add-button" onclick="addLocation(${index + 1})" id="addButton">+</button></td>
                 <td><input type="text" id="location${locationIndex}" class="location-input" name="location" placeholder="地点${locationIndex + 1}"></td>
+                <td id="time${locationIndex*2}">- / -</td>
                 <td></td>
                 <td>
                     <div class="stay-time-input">
@@ -473,6 +478,7 @@
                     newLocationRow.innerHTML = `
                         <td><button class="add-button" onclick="addLocation(${index + 1})">+</button></td>
                         <td><input type="text" id="location${index}" class="location-input" name="location" value="${item.location}" placeholder="地点${index + 1}"></td>
+                        <td id="time${index*2}">- / -</td>
                         <td></td>
                         <td>
                             <div class="stay-time-input">
@@ -489,6 +495,7 @@
                     modeRow.innerHTML = `
                         <td></td>
                         <td></td>
+                        <td id="time${index*2+1}">- / -</td>
                         <td>
                             <select id="mode${index}" class="mode-select">
                                 <option value="driving" ${item.mode === 'driving' ? 'selected' : ''}>車</option>
@@ -549,11 +556,12 @@
             let totalTimeSeconds = 0;
             const buffer = document.getElementById('bufferInput').value / 100;
 
+            let currentDateTime = new Date(document.getElementById('startDateTime').value);
+
             for (let i = 0; i < locations.length - 1; i++) {
                 const stayHours = document.getElementById(`stayHours${i}`).value;
                 const stayMinutes = document.getElementById(`stayMinutes${i}`).value;
                 const stayTimeSeconds = (parseInt(stayHours) * 3600) + (parseInt(stayMinutes) * 60);
-                totalTimeSeconds += stayTimeSeconds;
 
                 const origin = locations[i].value;
                 const destination = locations[i + 1].value;
@@ -569,12 +577,20 @@
                         const adjustedDuration = Math.ceil(data.duration_seconds * (1 + buffer));
                         totalTimeSeconds += adjustedDuration;
 
+                        const departureTime = new Date(currentDateTime.getTime() + stayTimeSeconds * 1000);
+                        const arrivalTime = new Date(departureTime.getTime() + adjustedDuration * 1000);
+
+                        document.getElementById(`time${i*2}`).textContent = currentDateTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) + " / " + departureTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+                        document.getElementById(`time${i*2+1}`).textContent = departureTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) + " / " + arrivalTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+
                         const durationElement = document.getElementById(`duration${i}`);
                         const distanceElement = document.getElementById(`distance${i}`);
                         if (durationElement && distanceElement) {
                             durationElement.textContent = formatDuration(adjustedDuration);
                             distanceElement.textContent = data.distance;
                         }
+
+                        currentDateTime = arrivalTime;
                     } else {
                         document.getElementById(`duration${i}`).textContent = "計算不可";
                         document.getElementById(`distance${i}`).textContent = "-";
@@ -585,6 +601,10 @@
                     document.getElementById(`distance${i}`).textContent = "-";
                 }
             }
+
+            // 最後の地点の到着時刻を更新
+            const lastIndex = locations.length - 1;
+            document.getElementById(`time${lastIndex*2}`).textContent = currentDateTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) + " / -";
 
             document.getElementById('totalTime').textContent = `総所要時間: ${formatDuration(totalTimeSeconds)}`;
             calculateFinalArrivalTime(totalTimeSeconds);
