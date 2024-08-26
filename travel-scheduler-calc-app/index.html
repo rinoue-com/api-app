@@ -223,14 +223,14 @@
             </div>
         </div>
     </div>
-    <div id="totalTime">総移動時間: 0分</div>
+    <div id="totalTime">総所要時間: 0分</div>
     <div id="finalArrivalTime">到着時刻: -</div>
     <table id="itineraryTable">
         <thead>
             <tr>
                 <th>操作</th>
                 <th>地点</th>
-                <th>到着時刻/ 出発時刻</th>
+                <th>到着時刻 / 出発時刻</th>
                 <th>交通手段</th>
                 <th>所要時間</th>
                 <th>距離</th>
@@ -562,6 +562,7 @@
                 const stayHours = document.getElementById(`stayHours${i}`).value;
                 const stayMinutes = document.getElementById(`stayMinutes${i}`).value;
                 const stayTimeSeconds = (parseInt(stayHours) * 3600) + (parseInt(stayMinutes) * 60);
+                totalTimeSeconds += stayTimeSeconds;
 
                 const origin = locations[i].value;
                 const destination = locations[i + 1].value;
