@@ -267,6 +267,20 @@
                 <td id="distance0">-</td>
                 <td><button class="map-button" onclick="showMapForRoute(0)">マップ</button></td>
             </tr>
+            <tr>
+                <td><button class="add-button" onclick="addLocation(1)" id="addButton">+</button></td>
+                <td><input type="text" id="location1" class="location-input" name="location" placeholder="地点1"></td>
+                <td id="time2">- / -</td>
+                <td></td>
+                <td>
+                    <div class="stay-time-input">
+                        <input type="number" id="stayHours1" value="0" min="0">時間
+                        <input type="number" id="stayMinutes1" value="20" min="0" max="59">分
+                    </div>
+                </td>
+                <td></td>
+                <td><button class="map-button" onclick="showMapForLocation(0)">マップ</button></td>
+            </tr>
         </tbody>
     </table>
     <button id="calculateButton" onclick="calculateItinerary()">計算する</button>
@@ -304,6 +318,8 @@
         loadConfig();
 
         function addLocation(index) {
+            locationIndex++;
+
             const itineraryBody = document.getElementById('itineraryBody');
 
             const defaultStayHours = document.getElementById('defaultStayHours').value;
@@ -316,7 +332,7 @@
                 <td></td>
                 <td id="time${locationIndex*2-1}">- / -</td>
                 <td>
-                    <select id="mode${locationIndex}" class="mode-select">
+                    <select id="mode${locationIndex-1}" class="mode-select">
                         <option value="driving" selected>車</option>
                         <option value="walking">徒歩</option>
                         <option value="transit">公共交通機関</option>
@@ -351,7 +367,7 @@
                 itineraryBody.insertBefore(modeRow, newLocationRow);
             }
 
-            locationIndex++;
+            
 
             // 1番下の行だけに追加ボタンを表示
             hideAddButtons();
@@ -516,6 +532,11 @@
 
                 locationIndex = data.length;
                 hideAddButtons();
+            } else {
+                // ローカルストレージにデータがない場合、現在の日時をデフォルトとして設定
+                const now = new Date();
+                const formattedDateTime = now.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"形式
+                document.getElementById('startDateTime').value = formattedDateTime;
             }
         }
 
