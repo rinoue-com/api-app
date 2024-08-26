@@ -23,7 +23,7 @@
             display: flex;
             justify-content: space-between;
             width: 100%;
-            max-width: 650px;
+            max-width: 750px;
             margin-bottom: 10px;
         }
 
@@ -31,7 +31,7 @@
             font-size: 16px;
         }
 
-        #saveButton, #exportButton {
+        #saveButton, #exportButton, #deleteButton {
             padding: 8px 16px;
             background-color: #007bff;
             color: #fff;
@@ -41,7 +41,7 @@
             margin-left: 5px;
         }
 
-        #saveButton:hover, #exportButton:hover {
+        #saveButton:hover, #exportButton:hover, #deleteButton:hover {
             background-color: #0056b3;
         }
 
@@ -53,7 +53,7 @@
 
         table {
             width: 100%;
-            max-width: 650px;
+            max-width: 750px;
             border-collapse: collapse;
         }
 
@@ -95,11 +95,24 @@
             background-color: #0056b3;
         }
 
+        .map-button {
+            padding: 5px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .map-button:hover {
+            background-color: #218838;
+        }
+
         #calculateButton {
             margin-top: 20px;
             padding: 10px;
             width: 100%;
-            max-width: 650px;
+            max-width: 750px;
             background-color: #28a745;
             color: #fff;
             border: none;
@@ -115,10 +128,11 @@
         #results {
             margin-top: 20px;
             width: 100%;
-            max-width: 650px;
+            max-width: 750px;
             text-align: left;
         }
     </style>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script>
 </head>
 <body>
     <h1>旅程計算アプリ</h1>
@@ -127,6 +141,7 @@
         <div>
             <button id="saveButton" onclick="saveData()">保存</button>
             <button id="exportButton" onclick="exportCSV()">CSV出力</button>
+            <button id="deleteButton" onclick="deleteLastLocation()">最後の行を削除</button>
         </div>
     </div>
     <div id="totalTime">総所要時間: 0分</div>
@@ -139,6 +154,7 @@
                 <th>交通手段</th>
                 <th>滞在時間・所要時間</th>
                 <th>距離</th>
+                <th>マップ</th>
             </tr>
         </thead>
         <tbody id="itineraryBody">
@@ -153,6 +169,7 @@
                     </div>
                 </td>
                 <td></td>
+                <td><button class="map-button" onclick="showMapForLocation(0)">マップ</button></td>
             </tr>
             <tr data-index="0">
                 <td></td>
@@ -166,6 +183,7 @@
                 </td>
                 <td><div id="duration0">-</div></td>
                 <td id="distance0">-</td>
+                <td><button class="map-button" onclick="showMapForRoute(0)">マップ</button></td>
             </tr>
             <tr>
                 <td><button class="add-button" onclick="addLocation(2)">+</button></td>
@@ -178,6 +196,7 @@
                     </div>
                 </td>
                 <td></td>
+                <td><button class="map-button" onclick="showMapForLocation(1)">マップ</button></td>
             </tr>
         </tbody>
     </table>
@@ -213,6 +232,7 @@
                 </td>
                 <td><div id="duration${locationIndex-1}">-</div></td>
                 <td id="distance${locationIndex-1}">-</td>
+                <td><button class="map-button" onclick="showMapForRoute(${locationIndex-1})">マップ</button></td>
             `;
 
             const newLocationRow = document.createElement('tr');
@@ -227,6 +247,7 @@
                     </div>
                 </td>
                 <td></td>
+                <td><button class="map-button" onclick="showMapForLocation(${locationIndex})">マップ</button></td>
             `;
 
             if (index >= itineraryBody.children.length / 2) {
@@ -238,6 +259,47 @@
             }
 
             locationIndex++;
+        }
+
+        function deleteLastLocation() {
+            const itineraryBody = document.getElementById('itineraryBody');
+            if (locationIndex > 1) {
+                itineraryBody.removeChild(itineraryBody.lastElementChild);  // 最後の地点行を削除
+                itineraryBody.removeChild(itineraryBody.lastElementChild);  // その前の移動行を削除
+                locationIndex--;
+            }
+        }
+
+        function showMapForLocation(index) {
+            const location = document.getElementById(`location${index}`).value;
+            if (location) {
+                const url = `https://www.google.co.jp/maps?q=${encodeURIComponent(location)}`;
+                window.open(url, '_blank', 'width=800,height=600');
+            } else {
+                alert('地点が入力されていません');
+            }
+        }
+
+        function showMapForRoute(index) {
+            const origin = document.getElementById(`location${index}`).value;
+            const destination = document.getElementById(`location${index + 1}`).value;
+            const mode = document.getElementById(`mode${index}`).value;
+
+            let travelMode = '';
+            if (mode === 'driving') {
+                travelMode = 'driving';
+            } else if (mode === 'walking') {
+                travelMode = 'walking';
+            } else if (mode === 'transit') {
+                travelMode = 'transit';
+            }
+
+            if (origin && destination) {
+                const url = `https://www.google.co.jp/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=${travelMode}`;
+                window.open(url, '_blank', 'width=800,height=600');
+            } else {
+                alert('出発地点または到着地点が入力されていません');
+            }
         }
 
         function saveData() {
@@ -282,6 +344,7 @@
                             </div>
                         </td>
                         <td></td>
+                        <td><button class="map-button" onclick="showMapForLocation(${index})">マップ</button></td>
                     `;
 
                     const modeRow = document.createElement('tr');
@@ -298,6 +361,7 @@
                         </td>
                         <td><div id="duration${index}">-</div></td>
                         <td id="distance${index}">-</td>
+                        <td><button class="map-button" onclick="showMapForRoute(${index})">マップ</button></td>
                     `;
 
                     itineraryBody.appendChild(newLocationRow);
