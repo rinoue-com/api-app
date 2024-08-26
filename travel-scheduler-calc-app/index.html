@@ -311,7 +311,7 @@
         }
 
         function exportCSV() {
-            const rows = [['地点', '交通手段', '滞在時間 (時間)', '滞在時間 (分)', '所要時間', '距離']];
+            const rows = [['タイプ', '地点', '交通手段', '滞在時間 (時間)', '滞在時間 (分)', '所要時間', '距離']];
             const locations = document.getElementsByClassName('location-input');
             const modes = document.getElementsByClassName('mode-select');
 
@@ -319,10 +319,14 @@
                 const location = locations[i].value;
                 const stayHours = document.getElementById(`stayHours${i}`).value;
                 const stayMinutes = document.getElementById(`stayMinutes${i}`).value;
-                const mode = i < modes.length ? modes[i].value : "";
-                const duration = i < modes.length ? document.getElementById(`duration${i}`).textContent: "";
-                const distance = i < modes.length ? document.getElementById(`distance${i}`).textContent: "";
-                rows.push([location, mode, stayHours, stayMinutes, duration, distance]);
+                rows.push(['地点', location, '', stayHours, stayMinutes, '', '']);
+
+                if (i < locations.length - 1) {
+                    const mode = modes[i].value;
+                    const duration = document.getElementById(`duration${i}`).textContent;
+                    const distance = document.getElementById(`distance${i}`).textContent;
+                    rows.push(['移動', '', mode, '', '', duration, distance]);
+                }
             }
 
             let csvContent = "data:text/csv;charset=utf-8," 
