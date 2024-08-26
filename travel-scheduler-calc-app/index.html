@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>旅程計算アプリ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        #controls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 650px;
+            margin-bottom: 10px;
+        }
+
+        #startDateTime {
+            font-size: 16px;
+        }
+
+        #saveButton, #exportButton {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+
+        #saveButton:hover, #exportButton:hover {
+            background-color: #0056b3;
+        }
+
+        #totalTime, #finalArrivalTime {
+            font-size: 18px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            max-width: 650px;
+            border-collapse: collapse;
+        }
+
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+
+        .location-input, .stay-time-input, .mode-select {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .stay-time-input {
+            display: flex;
+            justify-content: center;
+        }
+
+        .stay-time-input input {
+            width: 45%;
+            margin-right: 5px;
+            text-align: right;
+        }
+
+        .add-button {
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .add-button:hover {
+            background-color: #0056b3;
+        }
+
+        #calculateButton {
+            margin-top: 20px;
+            padding: 10px;
+            width: 100%;
+            max-width: 650px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #calculateButton:hover {
+            background-color: #218838;
+        }
+
+        #results {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 650px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <h1>旅程計算アプリ</h1>
+    <div id="controls">
+        <input type="datetime-local" id="startDateTime">
+        <div>
+            <button id="saveButton" onclick="saveData()">保存</button>
+            <button id="exportButton" onclick="exportCSV()">CSV出力</button>
+        </div>
+    </div>
+    <div id="totalTime">総所要時間: 0分</div>
+    <div id="finalArrivalTime">到着時刻: -</div>
+    <table id="itineraryTable">
+        <thead>
+            <tr>
+                <th>操作</th>
+                <th>地点</th>
+                <th>交通手段</th>
+                <th>滞在時間・所要時間</th>
+                <th>距離</th>
+            </tr>
+        </thead>
+        <tbody id="itineraryBody">
+            <tr>
+                <td><button class="add-button" onclick="addLocation(1)">+</button></td>
+                <td><input type="text" id="location0" class="location-input" name="location" placeholder="地点1"></td>
+                <td></td>
+                <td>
+                    <div class="stay-time-input">
+                        <input type="number" id="stayHours0" value="0" min="0">時間
+                        <input type="number" id="stayMinutes0" value="20" min="0" max="59">分
+                    </div>
+                </td>
+                <td></td>
+            </tr>
+            <tr data-index="0">
+                <td></td>
+                <td></td>
+                <td>
+                    <select id="mode0" class="mode-select">
+                        <option value="driving" selected>車</option>
+                        <option value="walking">徒歩</option>
+                        <option value="transit">公共交通機関</option>
+                    </select>
+                </td>
+                <td><div id="duration0">-</div></td>
+                <td id="distance0">-</td>
+            </tr>
+            <tr>
+                <td><button class="add-button" onclick="addLocation(2)">+</button></td>
+                <td><input type="text" id="location1" class="location-input" name="location" placeholder="地点2"></td>
+                <td></td>
+                <td>
+                    <div class="stay-time-input">
+                        <input type="number" id="stayHours1" value="0" min="0">時間
+                        <input type="number" id="stayMinutes1" value="20" min="0" max="59">分
+                    </div>
+                </td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+    <button id="calculateButton" onclick="calculateItinerary()">計算する</button>
+    <div id="results"></div>
+
+    <script>
+        let locationIndex = 2;
+        let apiUrl = '';
+
+        async function loadConfig() {
+            const response = await fetch('config.json');
+            const config = await response.json();
+            apiUrl = config.CLOUD_FUNCTION_URL;
+        }
+
+        loadConfig();
+
+        function addLocation(index) {
+            const itineraryBody = document.getElementById('itineraryBody');
+
+            const modeRow = document.createElement('tr');
+            modeRow.setAttribute('data-index', locationIndex);
+            modeRow.innerHTML = `
+                <td></td>
+                <td></td>
+                <td>
+                    <select id="mode${locationIndex}" class="mode-select">
+                        <option value="driving" selected>車</option>
+                        <option value="walking">徒歩</option>
+                        <option value="transit">公共交通機関</option>
+                    </select>
+                </td>
+                <td><div id="duration${locationIndex-1}">-</div></td>
+                <td id="distance${locationIndex-1}">-</td>
+            `;
+
+            const newLocationRow = document.createElement('tr');
+            newLocationRow.innerHTML = `
+                <td><button class="add-button" onclick="addLocation(${index + 1})">+</button></td>
+                <td><input type="text" id="location${locationIndex}" class="location-input" name="location" placeholder="地点${locationIndex + 1}"></td>
+                <td></td>
+                <td>
+                    <div class="stay-time-input">
+                        <input type="number" id="stayHours${locationIndex}" value="0" min="0">時間
+                        <input type="number" id="stayMinutes${locationIndex}" value="20" min="0" max="59">分
+                    </div>
+                </td>
+                <td></td>
+            `;
+
+            if (index >= itineraryBody.children.length / 2) {
+                itineraryBody.appendChild(modeRow);
+                itineraryBody.appendChild(newLocationRow);
+            } else {
+                itineraryBody.insertBefore(newLocationRow, itineraryBody.children[2 * index + 2]);
+                itineraryBody.insertBefore(modeRow, newLocationRow);
+            }
+
+            locationIndex++;
+        }
+
+        function saveData() {
+            const data = [];
+            const locations = document.getElementsByClassName('location-input');
+            const modes = document.getElementsByClassName('mode-select');
+
+            for (let i = 0; i < locations.length; i++) {
+                let mode = "";
+                const location = locations[i].value;
+                const stayHours = document.getElementById(`stayHours${i}`).value;
+                const stayMinutes = document.getElementById(`stayMinutes${i}`).value;
+                // 最後の行でないときのみ保存
+                if (i < locations.length - 1) {
+                    mode = modes[i].value;
+                }
+                data.push({ location, stayHours, stayMinutes, mode });
+            }
+
+            const startDateTime = document.getElementById('startDateTime').value;
+            localStorage.setItem('itineraryData', JSON.stringify({ startDateTime, data }));
+        }
+
+        function loadData() {
+            const savedData = localStorage.getItem('itineraryData');
+            if (savedData) {
+                const { startDateTime, data } = JSON.parse(savedData);
+                document.getElementById('startDateTime').value = startDateTime;
+
+                const itineraryBody = document.getElementById('itineraryBody');
+                itineraryBody.innerHTML = '';
+
+                data.forEach((item, index) => {
+                    const newLocationRow = document.createElement('tr');
+                    newLocationRow.innerHTML = `
+                        <td><button class="add-button" onclick="addLocation(${index + 1})">+</button></td>
+                        <td><input type="text" id="location${index}" class="location-input" name="location" value="${item.location}" placeholder="地点${index + 1}"></td>
+                        <td></td>
+                        <td>
+                            <div class="stay-time-input">
+                                <input type="number" id="stayHours${index}" value="${item.stayHours}" min="0">時間
+                                <input type="number" id="stayMinutes${index}" value="${item.stayMinutes}" min="0" max="59">分
+                            </div>
+                        </td>
+                        <td></td>
+                    `;
+
+                    const modeRow = document.createElement('tr');
+                    modeRow.setAttribute('data-index', index);
+                    modeRow.innerHTML = `
+                        <td></td>
+                        <td></td>
+                        <td>
+                            <select id="mode${index}" class="mode-select">
+                                <option value="driving" ${item.mode === 'driving' ? 'selected' : ''}>車</option>
+                                <option value="walking" ${item.mode === 'walking' ? 'selected' : ''}>徒歩</option>
+                                <option value="transit" ${item.mode === 'transit' ? 'selected' : ''}>公共交通機関</option>
+                            </select>
+                        </td>
+                        <td><div id="duration${index}">-</div></td>
+                        <td id="distance${index}">-</td>
+                    `;
+
+                    itineraryBody.appendChild(newLocationRow);
+                    // 最後の行でないときのみ
+                    if (index < data.length - 1) {
+                        itineraryBody.appendChild(modeRow);
+                    }
+                });
+
+                locationIndex = data.length;
+            }
+        }
+
+        function exportCSV() {
+            const rows = [['地点', '交通手段', '滞在時間 (時間)', '滞在時間 (分)', '所要時間', '距離']];
+            const locations = document.getElementsByClassName('location-input');
+            const modes = document.getElementsByClassName('mode-select');
+
+            for (let i = 0; i < locations.length; i++) {
+                const location = locations[i].value;
+                const stayHours = document.getElementById(`stayHours${i}`).value;
+                const stayMinutes = document.getElementById(`stayMinutes${i}`).value;
+                const mode = modes[i].value;
+                const duration = document.getElementById(`duration${i}`).textContent;
+                const distance = document.getElementById(`distance${i}`).textContent;
+                rows.push([location, mode, stayHours, stayMinutes, duration, distance]);
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8," 
+                + rows.map(e => e.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "itinerary.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        async function calculateItinerary() {
+            const locations = document.getElementsByClassName('location-input');
+            const modes = document.getElementsByClassName('mode-select');
+            let totalTimeSeconds = 0;
+
+            for (let i = 0; i < locations.length - 1; i++) {
+                const stayHours = document.getElementById(`stayHours${i}`).value;
+                const stayMinutes = document.getElementById(`stayMinutes${i}`).value;
+                const stayTimeSeconds = (parseInt(stayHours) * 3600) + (parseInt(stayMinutes) * 60);
+                totalTimeSeconds += stayTimeSeconds;
+
+                const origin = locations[i].value;
+                const destination = locations[i + 1].value;
+                const mode = modes[i].value;
+
+                const url = `${apiUrl}?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&mode=${mode}`;
+
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (data.duration_seconds && data.distance) {
+                        totalTimeSeconds += data.duration_seconds;
+
+                        const durationElement = document.getElementById(`duration${i}`);
+                        const distanceElement = document.getElementById(`distance${i}`);
+                        if (durationElement && distanceElement) {
+                            durationElement.textContent = formatDuration(data.duration_seconds);
+                            distanceElement.textContent = data.distance;
+                        }
+                    } else {
+                        document.getElementById(`duration${i}`).textContent = "計算不可";
+                        document.getElementById(`distance${i}`).textContent = "-";
+                    }
+                } catch (error) {
+                    console.error("Error fetching the API", error);
+                    document.getElementById(`duration${i}`).textContent = "エラー";
+                    document.getElementById(`distance${i}`).textContent = "-";
+                }
+            }
+
+            document.getElementById('totalTime').textContent = `総所要時間: ${formatDuration(totalTimeSeconds)}`;
+            calculateFinalArrivalTime(totalTimeSeconds);
+        }
+
+        function calculateFinalArrivalTime(totalTimeSeconds) {
+            const startDateTime = document.getElementById('startDateTime').value;
+            if (startDateTime) {
+                const startDate = new Date(startDateTime);
+                startDate.setSeconds(startDate.getSeconds() + totalTimeSeconds);
+                const options = { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                document.getElementById('finalArrivalTime').textContent = `到着時刻: ${startDate.toLocaleDateString('ja-JP', options)}`;
+            } else {
+                document.getElementById('finalArrivalTime').textContent = "到着時刻: -";
+            }
+        }
+
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            if (hours > 0) {
+                return `${hours}時間${minutes}分`;
+            } else {
+                return `${minutes}分`;
+            }
+        }
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>
