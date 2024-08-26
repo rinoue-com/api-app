@@ -250,7 +250,6 @@
                 const location = locations[i].value;
                 const stayHours = document.getElementById(`stayHours${i}`).value;
                 const stayMinutes = document.getElementById(`stayMinutes${i}`).value;
-                // 最後の行でないときのみ保存
                 if (i < locations.length - 1) {
                     mode = modes[i].value;
                 }
@@ -302,7 +301,6 @@
                     `;
 
                     itineraryBody.appendChild(newLocationRow);
-                    // 最後の行でないときのみ
                     if (index < data.length - 1) {
                         itineraryBody.appendChild(modeRow);
                     }
@@ -321,9 +319,9 @@
                 const location = locations[i].value;
                 const stayHours = document.getElementById(`stayHours${i}`).value;
                 const stayMinutes = document.getElementById(`stayMinutes${i}`).value;
-                const mode = modes[i].value;
-                const duration = document.getElementById(`duration${i}`).textContent;
-                const distance = document.getElementById(`distance${i}`).textContent;
+                const mode = i < modes.length ? modes[i].value : "";
+                const duration = i < modes.length ? document.getElementById(`duration${i}`).textContent: "";
+                const distance = i < modes.length ? document.getElementById(`distance${i}`).textContent: "";
                 rows.push([location, mode, stayHours, stayMinutes, duration, distance]);
             }
 
