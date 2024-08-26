@@ -21,13 +21,33 @@
 
         #controls {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            align-items: flex-start;
             width: 100%;
             max-width: 750px;
             margin-bottom: 10px;
         }
 
-        #startDateTime {
+        #upperControls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        #lowerControls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        #startDateTimeLabel {
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        #startDateTime, #bufferInput, #defaultStayHours, #defaultStayMinutes {
             font-size: 16px;
         }
 
@@ -176,16 +196,31 @@
             height: 100%;
         }
     </style>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA8nYMFGhk1CN5eZ51yhPG2brwmo0qvRpc"></script>
 </head>
 <body>
     <h1>旅程計算アプリ</h1>
     <div id="controls">
-        <input type="datetime-local" id="startDateTime">
-        <div>
-            <button id="saveButton" onclick="saveData()">保存</button>
-            <button id="exportButton" onclick="exportCSV()">CSV出力</button>
-            <button id="deleteButton" onclick="deleteLastLocation()">最後の行を削除</button>
+        <div id="upperControls">
+            <div>
+                <label for="bufferInput">移動時間バッファ (%)：</label>
+                <input type="number" id="bufferInput" value="10" min="0" max="100">
+            </div>
+            <div>
+                <label for="defaultStayHours">デフォルトの滞在時間：</label>
+                <input type="number" id="defaultStayHours" value="0" min="0">時間
+                <input type="number" id="defaultStayMinutes" value="20" min="0" max="59">分
+            </div>
+        </div>
+        <div id="lowerControls">
+            <div>
+                <label id="startDateTimeLabel" for="startDateTime">出発日時：</label>
+                <input type="datetime-local" id="startDateTime">
+            </div>
+            <div>
+                <button id="saveButton" onclick="saveData()">保存</button>
+                <button id="exportButton" onclick="exportCSV()">CSV出力</button>
+                <button id="deleteButton" onclick="deleteLastLocation()">最後の行を削除</button>
+            </div>
         </div>
     </div>
     <div id="totalTime">総所要時間: 0分</div>
@@ -203,7 +238,7 @@
         </thead>
         <tbody id="itineraryBody">
             <tr>
-                <td><button class="add-button" onclick="addLocation(1)">+</button></td>
+                <td><button class="add-button" onclick="addLocation(1)" id="addButton">+</button></td>
                 <td><input type="text" id="location0" class="location-input" name="location" placeholder="地点1"></td>
                 <td></td>
                 <td>
@@ -229,19 +264,6 @@
                 <td id="distance0">-</td>
                 <td><button class="map-button" onclick="showMapForRoute(0)">マップ</button></td>
             </tr>
-            <tr>
-                <td><button class="add-button" onclick="addLocation(2)">+</button></td>
-                <td><input type="text" id="location1" class="location-input" name="location" placeholder="地点2"></td>
-                <td></td>
-                <td>
-                    <div class="stay-time-input">
-                        <input type="number" id="stayHours1" value="0" min="0">時間
-                        <input type="number" id="stayMinutes1" value="20" min="0" max="59">分
-                    </div>
-                </td>
-                <td></td>
-                <td><button class="map-button" onclick="showMapForLocation(1)">マップ</button></td>
-            </tr>
         </tbody>
     </table>
     <button id="calculateButton" onclick="calculateItinerary()">計算する</button>
@@ -256,8 +278,9 @@
     </div>
 
     <script>
-        let locationIndex = 2;
+        let locationIndex = 1;
         let apiUrl = '';
+        let apiKey = '';
         let map;  // Googleマップオブジェクト
         let directionsService;  // 経路表示サービス
         let directionsRenderer; // 経路表示レンダラー
@@ -266,12 +289,22 @@
             const response = await fetch('config.json');
             const config = await response.json();
             apiUrl = config.CLOUD_FUNCTION_URL;
+            apiKey = config.GOOGLE_MAPS_API_KEY;
+
+            // Google Maps APIを動的に読み込む
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initializeMap`;
+            script.async = true;
+            document.head.appendChild(script);
         }
 
         loadConfig();
 
         function addLocation(index) {
             const itineraryBody = document.getElementById('itineraryBody');
+
+            const defaultStayHours = document.getElementById('defaultStayHours').value;
+            const defaultStayMinutes = document.getElementById('defaultStayMinutes').value;
 
             const modeRow = document.createElement('tr');
             modeRow.setAttribute('data-index', locationIndex);
@@ -292,13 +325,13 @@
 
             const newLocationRow = document.createElement('tr');
             newLocationRow.innerHTML = `
-                <td><button class="add-button" onclick="addLocation(${index + 1})">+</button></td>
+                <td><button class="add-button" onclick="addLocation(${index + 1})" id="addButton">+</button></td>
                 <td><input type="text" id="location${locationIndex}" class="location-input" name="location" placeholder="地点${locationIndex + 1}"></td>
                 <td></td>
                 <td>
                     <div class="stay-time-input">
-                        <input type="number" id="stayHours${locationIndex}" value="0" min="0">時間
-                        <input type="number" id="stayMinutes${locationIndex}" value="20" min="0" max="59">分
+                        <input type="number" id="stayHours${locationIndex}" value="${defaultStayHours}" min="0">時間
+                        <input type="number" id="stayMinutes${locationIndex}" value="${defaultStayMinutes}" min="0" max="59">分
                     </div>
                 </td>
                 <td></td>
@@ -314,6 +347,16 @@
             }
 
             locationIndex++;
+
+            // 1番下の行だけに追加ボタンを表示
+            hideAddButtons();
+        }
+
+        function hideAddButtons() {
+            const addButtons = document.getElementsByClassName('add-button');
+            for (let i = 0; i < addButtons.length; i++) {
+                addButtons[i].style.display = i === addButtons.length - 1 ? 'inline-block' : 'none';
+            }
         }
 
         function deleteLastLocation() {
@@ -323,6 +366,7 @@
                 itineraryBody.removeChild(itineraryBody.lastElementChild);  // その前の移動行を削除
                 locationIndex--;
             }
+            hideAddButtons();
         }
 
         function showMapForLocation(index) {
@@ -372,7 +416,6 @@
 
         function openMapModal() {
             document.getElementById('mapModal').style.display = 'block';
-            initializeMap();
         }
 
         function closeMapModal() {
@@ -380,15 +423,13 @@
         }
 
         function initializeMap() {
-            if (!map) {
-                map = new google.maps.Map(document.getElementById('map'), {
-                    zoom: 10,
-                    center: { lat: 35.6895, lng: 139.6917 }
-                });
-                directionsService = new google.maps.DirectionsService();
-                directionsRenderer = new google.maps.DirectionsRenderer();
-                directionsRenderer.setMap(map);
-            }
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 10,
+                center: { lat: 35.6895, lng: 139.6917 }
+            });
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer();
+            directionsRenderer.setMap(map);
         }
 
         function saveData() {
@@ -408,14 +449,21 @@
             }
 
             const startDateTime = document.getElementById('startDateTime').value;
-            localStorage.setItem('itineraryData', JSON.stringify({ startDateTime, data }));
+            const buffer = document.getElementById('bufferInput').value;
+            const defaultStayHours = document.getElementById('defaultStayHours').value;
+            const defaultStayMinutes = document.getElementById('defaultStayMinutes').value;
+
+            localStorage.setItem('itineraryData', JSON.stringify({ startDateTime, buffer, defaultStayHours, defaultStayMinutes, data }));
         }
 
         function loadData() {
             const savedData = localStorage.getItem('itineraryData');
             if (savedData) {
-                const { startDateTime, data } = JSON.parse(savedData);
+                const { startDateTime, buffer, defaultStayHours, defaultStayMinutes, data } = JSON.parse(savedData);
                 document.getElementById('startDateTime').value = startDateTime;
+                document.getElementById('bufferInput').value = buffer;
+                document.getElementById('defaultStayHours').value = defaultStayHours;
+                document.getElementById('defaultStayMinutes').value = defaultStayMinutes;
 
                 const itineraryBody = document.getElementById('itineraryBody');
                 itineraryBody.innerHTML = '';
@@ -460,6 +508,7 @@
                 });
 
                 locationIndex = data.length;
+                hideAddButtons();
             }
         }
 
@@ -498,6 +547,7 @@
             const locations = document.getElementsByClassName('location-input');
             const modes = document.getElementsByClassName('mode-select');
             let totalTimeSeconds = 0;
+            const buffer = document.getElementById('bufferInput').value / 100;
 
             for (let i = 0; i < locations.length - 1; i++) {
                 const stayHours = document.getElementById(`stayHours${i}`).value;
@@ -516,12 +566,13 @@
                     const data = await response.json();
 
                     if (data.duration_seconds && data.distance) {
-                        totalTimeSeconds += data.duration_seconds;
+                        const adjustedDuration = Math.ceil(data.duration_seconds * (1 + buffer));
+                        totalTimeSeconds += adjustedDuration;
 
                         const durationElement = document.getElementById(`duration${i}`);
                         const distanceElement = document.getElementById(`distance${i}`);
                         if (durationElement && distanceElement) {
-                            durationElement.textContent = formatDuration(data.duration_seconds);
+                            durationElement.textContent = formatDuration(adjustedDuration);
                             distanceElement.textContent = data.distance;
                         }
                     } else {
